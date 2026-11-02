@@ -1,2 +1,1 @@
-# Astute
-Interactive Math Website
+# my-quiz-app

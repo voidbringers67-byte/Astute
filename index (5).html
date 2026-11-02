@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EduPractice | Interactive Practice Platform</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Canvas Confetti Library -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Firebase Web SDK v9 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+    import { 
+      getAuth, 
+      createUserWithEmailAndPassword, 
+      signInWithEmailAndPassword, 
+      signOut, 
+      onAuthStateChanged,
+      GoogleAuthProvider,
+      signInWithPopup
+    } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
+    import { 
+      getFirestore, 
+      doc, 
+      getDoc, 
+      setDoc, 
+      updateDoc, 
+      increment 
+    } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
+
+    import { firebaseConfig } from "./config.js";
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    window.firebaseAuth = auth;
+    window.firebaseDb = db;
+    window.fbMethods = {
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged,
+      GoogleAuthProvider,
+      signInWithPopup,
+      doc,
+      getDoc,
+      setDoc,
+      updateDoc,
+      increment
+    };
+  </script>
+
+  <style>
+    .has-submenu:hover .submenu {
+      display: block !important;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans antialiased">
+
+  <!-- ==================== HEADER ==================== -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+      
+      <!-- Logo & Navigation -->
+      <div class="flex items-center space-x-6">
+        <a href="#" onclick="showDashboard(); return false;" class="flex items-center space-x-3 text-slate-900 font-extrabold text-xl">
+          <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-sm">
+            <i data-lucide="brain"></i>
+          </div>
+          <span class="hidden sm:inline tracking-tight">EduPractice</span>
+        </a>
+
+        <nav class="flex items-center space-x-4">
+          <button onclick="showDashboard()" class="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition">
+            Home
+          </button>
+
+          <!-- Topics Dropdown -->
+          <div class="relative group">
+            <button class="flex items-center space-x-1 text-sm font-semibold text-slate-600 hover:text-indigo-600 py-2 transition">
+              <span>Topics</span>
+              <i data-lucide="chevron-down" class="w-4 h-4"></i>
+            </button>
+
+            <!-- Dropdown Menu Box -->
+            <div id="dropdown-topics-menu" class="absolute left-0 top-full w-60 bg-white border border-slate-200 rounded-2xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 p-2 z-50">
+              <!-- Dynamically populated via JS -->
+            </div>
+          </div>
+        </nav>
+      </div>
+
+      <!-- Stats Bar & Auth -->
+      <div class="flex items-center space-x-4">
+        <div class="flex items-center space-x-3 text-sm font-medium">
+          <div class="flex items-center space-x-1.5 text-amber-500 bg-amber-50 px-3 py-1.5 rounded-full border border-amber-200">
+            <i data-lucide="flame" class="w-4 h-4 fill-amber-500"></i>
+            <span id="streak-count" class="font-bold">0</span>
+          </div>
+          <div class="flex items-center space-x-1.5 text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200">
+            <i data-lucide="zap" class="w-4 h-4 fill-emerald-500"></i>
+            <span id="score-xp" class="font-bold">0</span>
+            <span class="text-emerald-700 text-xs hidden sm:inline">XP</span>
+          </div>
+        </div>
+
+        <div id="auth-header-container">
+          <div id="logged-out-view" class="flex items-center gap-2">
+            <button onclick="openAuthModal('signin')" class="text-sm font-semibold text-slate-700 hover:text-indigo-600 px-3 py-2 rounded-xl transition">
+              Sign In
+            </button>
+            <button onclick="openAuthModal('signup')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold px-4 py-2 rounded-xl shadow-sm transition">
+              Sign Up
+            </button>
+          </div>
+
+          <div id="logged-in-view" class="hidden relative group">
+            <button class="flex items-center space-x-2 bg-slate-100 hover:bg-slate-200 p-1.5 pr-3 rounded-full transition">
+              <div id="user-avatar" class="w-7 h-7 bg-indigo-600 text-white font-bold rounded-full flex items-center justify-center text-xs overflow-hidden">U</div>
+              <span id="user-display-name" class="text-xs font-semibold text-slate-700 max-w-[100px] truncate">User</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-500"></i>
+            </button>
+
+            <div class="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all p-2 z-50">
+              <div class="px-3 py-2 border-b border-slate-100 text-xs text-slate-500 truncate" id="user-email-label">user@example.com</div>
+              <button onclick="showProfileSettings()" class="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition flex items-center gap-2 mt-1">
+                <i data-lucide="user" class="w-3.5 h-3.5"></i>
+                Profile Settings
+              </button>
+            
+              <button onclick="handleSignOut()" class="w-full text-left px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition flex items-center gap-2 mt-1">
+                <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== MAIN CONTENT ==================== -->
+  <main class="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 my-4">
+
+    <!-- 1. Home / Dashboard Profile View -->
+    <div id="view-dashboard" class="space-y-6">
+      
+      <!-- Profile Header Card (Top Left Bio & Picture) -->
+      <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center sm:items-start gap-6">
+        <div id="home-profile-avatar" class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-indigo-600 text-white font-bold text-3xl flex items-center justify-center shrink-0 shadow-md overflow-hidden">
+          U
+        </div>
+        <div class="space-y-2 text-center sm:text-left flex-1">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <h1 id="home-profile-name" class="text-2xl font-extrabold text-slate-900">Welcome User</h1>
+            <button onclick="showProfileSettings()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2 rounded-xl transition self-center sm:self-auto flex items-center gap-1.5">
+              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Edit Profile
+            </button>
+          </div>
+          <p id="home-profile-bio" class="text-sm text-slate-500 leading-relaxed max-w-xl">
+            No bio added yet. Click edit profile to tell us a little bit about yourself and set up your student profile!
+          </p>
+        </div>
+      </div>
+
+      <!-- Badge Collection Section -->
+      <div class="space-y-4 pt-2">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+            <i data-lucide="award" class="w-5 h-5 text-indigo-600"></i> Badge Collection
+          </h2>
+          <span class="text-xs font-semibold text-slate-400">4 Badges Available</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Badge 1 -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center text-center space-y-3 group hover:border-indigo-300 transition">
+            <div class="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-500 shadow-inner group-hover:scale-105 transition-transform">
+              <i data-lucide="flame" class="w-8 h-8 fill-amber-500"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-slate-900 text-sm">Windrunner Squire</h3>
+              <p class="text-xs text-slate-500 mt-1">Maintain a practice streak for 3 consecutive days.</p>
+            </div>
+            <span class="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full mt-auto">Locked</span>
+          </div>
+
+          <!-- Badge 2 -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center text-center space-y-3 group hover:border-indigo-300 transition">
+            <div class="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-inner group-hover:scale-105 transition-transform">
+              <i data-lucide="zap" class="w-8 h-8 fill-emerald-500"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-slate-900 text-sm">Windrunner Radiant</h3>
+              <p class="text-xs text-slate-500 mt-1">Accumulate a total of 100 practice XP points.</p>
+            </div>
+            <span class="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full mt-auto">Locked</span>
+          </div>
+
+          <!-- Badge 3 -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center text-center space-y-3 group hover:border-indigo-300 transition">
+            <div class="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 shadow-inner group-hover:scale-105 transition-transform">
+              <i data-lucide="compass" class="w-8 h-8"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-slate-900 text-sm">Alexz King</h3>
+              <p class="text-xs text-slate-500 mt-1">Marry JZ</p>
+            </div>
+            <span class="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full mt-auto">Locked</span>
+          </div>
+
+          <!-- Badge 4 -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center text-center space-y-3 group hover:border-indigo-300 transition">
+            <div class="w-16 h-16 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 shadow-inner group-hover:scale-105 transition-transform">
+              <i data-lucide="check-circle-2" class="w-8 h-8"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-slate-900 text-sm">Cephandrius</h3>
+              <p class="text-xs text-slate-500 mt-1">Understand prosthaphaeresis in addition to proving green's theorem</p>
+            </div>
+            <span class="text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full mt-auto">Unlocked</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Profile Settings View -->
+    <div id="view-profile" class="hidden space-y-6 max-w-xl mx-auto">
+      <div class="flex items-center justify-between">
+        <button onclick="showDashboard()" class="text-slate-500 hover:text-slate-800 text-sm font-medium flex items-center gap-1.5 transition">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          Back to Home
+        </button>
+        <h1 class="text-xl font-bold text-slate-900">Profile Settings</h1>
+      </div>
+    
+      <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+        <form onsubmit="saveProfileSettings(event)" class="space-y-4">
+          
+          <!-- Profile Picture URL -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Profile Picture Image URL</label>
+            <input type="url" id="profile-avatar-input" placeholder="https://example.com/photo.jpg" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-indigo-600">
+            <p class="text-[11px] text-slate-400 mt-1">Paste a direct link to an image for your profile icon.</p>
+          </div>
+    
+          <!-- Username -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Username / Display Name</label>
+            <input type="text" id="profile-name-input" required placeholder="e.g. MathWizard" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-indigo-600">
+          </div>
+    
+          <!-- Bio -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Bio</label>
+            <textarea id="profile-bio-input" rows="3" placeholder="Tell us a little bit about yourself..." class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-indigo-600 resize-none"></textarea>
+          </div>
+    
+          <div class="pt-2 flex justify-end">
+            <button type="submit" id="save-profile-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2.5 rounded-xl transition text-sm shadow-md">
+              Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 2. Root Topic Page (Subtopic Overview View) -->
+    <div id="view-topic-overview" class="hidden space-y-6">
+      <div class="flex items-center justify-between">
+        <button onclick="showDashboard()" class="text-slate-500 hover:text-slate-800 text-sm font-medium flex items-center gap-1.5 transition">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          Back to Home
+        </button>
+      </div>
+
+      <div id="topic-hero-card" class="bg-gradient-to-br from-indigo-600 to-indigo-800 text-white p-6 sm:p-8 rounded-2xl shadow-md space-y-3">
+        <!-- Populated via JavaScript -->
+      </div>
+
+      <div class="space-y-3">
+        <h2 class="text-lg font-bold text-slate-800">Available Subtopics</h2>
+        <div id="subtopics-list" class="grid grid-cols-1 gap-3">
+          <!-- Subtopic cards loaded here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Quiz View -->
+    <div id="view-quiz" class="hidden space-y-6">
+      <div class="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <button id="quiz-back-btn" onclick="showDashboard()" class="text-slate-500 hover:text-slate-800 text-sm font-medium flex items-center gap-1.5 transition">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          Back
+        </button>
+
+        <span id="current-topic-title" class="font-semibold text-slate-700 text-sm bg-slate-100 px-3 py-1 rounded-full">
+          Topic
+        </span>
+
+        <button onclick="toggleScratchpad()" class="text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200 text-sm font-medium flex items-center gap-1.5 transition">
+          <i data-lucide="pen-tool" class="w-4 h-4"></i>
+          Scratchpad
+        </button>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
+        <!-- Scratchpad Drawer Overlay -->
+        <div id="scratchpad-drawer" class="hidden absolute inset-0 bg-white/95 z-20 flex flex-col p-4 border-b border-slate-200">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Scratchpad Drawer</span>
+            <div class="flex items-center gap-2">
+              <button onclick="clearScratchpad()" class="text-xs bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded text-slate-600 transition">Clear Canvas</button>
+              <button onclick="toggleScratchpad()" class="text-xs bg-slate-800 text-white px-2.5 py-1 rounded hover:bg-slate-700 transition">Close</button>
+            </div>
+          </div>
+          <canvas id="scratchpad-canvas" class="flex-1 border border-slate-200 rounded-lg cursor-crosshair bg-white"></canvas>
+        </div>
+
+        <div class="p-6 sm:p-8 space-y-4">
+          <div class="flex justify-between items-center text-xs text-slate-400 font-semibold tracking-wide uppercase">
+            <span id="question-tracker">Question 1 of 5</span>
+            <span id="question-type-badge" class="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded font-bold">Question</span>
+          </div>
+
+          <h2 id="question-text" class="text-xl sm:text-2xl font-bold text-slate-800 leading-snug">
+            Question prompt loading...
+          </h2>
+
+          <div id="code-snippet-container" class="hidden">
+            <pre class="bg-slate-900 text-slate-100 p-4 rounded-xl text-sm font-mono overflow-x-auto"><code id="code-snippet"></code></pre>
+          </div>
+        </div>
+
+        <!-- Question Input Container (Supports MCQ & Numeric) -->
+        <div class="px-6 sm:px-8 pb-6">
+          <!-- MCQ Options Container -->
+          <div id="options-container" class="space-y-3 hidden"></div>
+
+          <!-- Numeric Free-Form Input Container -->
+          <div id="numeric-container" class="space-y-4 hidden">
+            <div class="space-y-2">
+              <label for="numeric-input" class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Type Your Numerical Answer</label>
+              <div class="relative">
+                <input 
+                  type="text" 
+                  id="numeric-input" 
+                  placeholder="e.g. 7, -2.5, or 12" 
+                  oninput="handleNumericInput(this.value)"
+                  onkeydown="if(event.key==='Enter') checkAnswer()"
+                  class="w-full text-lg font-semibold px-4 py-3.5 bg-slate-50 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:bg-white transition text-slate-900 placeholder:text-slate-400"
+                />
+                <div class="absolute right-3 top-3.5 text-xs text-slate-400 font-medium select-none pointer-events-none">
+                  Exact or Decimal
+                </div>
+              </div>
+            </div>
+
+            <!-- Math Keypad Helper Buttons -->
+            <div class="flex flex-wrap gap-2 pt-1">
+              <span class="text-xs text-slate-400 self-center font-medium mr-1">Quick insertion:</span>
+              <button onclick="appendNumericChar('-')" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition">- (Negative)</button>
+              <button onclick="appendNumericChar('.')" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition">. (Decimal)</button>
+              <button onclick="clearNumericInput()" class="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-500 text-xs font-bold rounded-lg transition">Clear</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="action-bar" class="bg-slate-50 border-t border-slate-200 p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <button id="hint-btn" onclick="revealHint()" class="w-full sm:w-auto text-indigo-600 hover:text-indigo-700 text-sm font-semibold flex items-center justify-center gap-1.5 transition">
+            <i data-lucide="lightbulb" class="w-4 h-4"></i>
+            Stuck? Get a hint (<span id="hints-remaining">0</span> left)
+          </button>
+
+          <button id="submit-btn" onclick="checkAnswer()" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold shadow-md transition disabled:opacity-50">
+            Check Answer
+          </button>
+        </div>
+
+        <div id="feedback-box" class="hidden p-6 border-t"></div>
+        <div id="hints-box" class="hidden border-t border-amber-100 bg-amber-50/60 p-6 space-y-3">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
+            <i data-lucide="help-circle" class="w-4 h-4"></i> Hints
+          </h4>
+          <div id="hints-list" class="space-y-2 text-sm text-amber-900"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. Quiz Results View -->
+    <div id="view-results" class="hidden space-y-6 max-w-lg mx-auto text-center bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+      <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+        <i data-lucide="award" class="w-8 h-8"></i>
+      </div>
+      <div class="space-y-2">
+        <h2 class="text-2xl font-extrabold text-slate-900">Practice Completed!</h2>
+        <p class="text-sm text-slate-500">Fantastic job working through these problems. Keep up the great streak!</p>
+      </div>
+      <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-around">
+        <div>
+          <div class="text-xs font-bold text-slate-400 uppercase">Questions</div>
+          <div id="results-total-q" class="text-xl font-bold text-slate-800">5</div>
+        </div>
+        <div>
+          <div class="text-xs font-bold text-slate-400 uppercase">XP Earned</div>
+          <div id="results-xp-earned" class="text-xl font-bold text-emerald-600">+50</div>
+        </div>
+      </div>
+      <div class="pt-2 flex gap-3 justify-center">
+        <button onclick="showDashboard()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2.5 rounded-xl transition text-sm shadow-md">
+          Back to Home
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Auth Modal -->
+  <div id="auth-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl relative border border-slate-100">
+      <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="text-center space-y-1 mb-6">
+        <h3 id="auth-modal-title" class="text-xl font-bold text-slate-900">Sign In to EduPractice</h3>
+        <p id="auth-modal-subtitle" class="text-xs text-slate-500">Save your practice XP, track streaks, and view progress.</p>
+      </div>
+
+      <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Email Address</label>
+          <input type="email" id="auth-email" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-indigo-600">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
+          <input type="password" id="auth-password" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-indigo-600">
+        </div>
+        <button type="submit" id="auth-submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition text-sm shadow-md">
+          Sign In
+        </button>
+      </form>
+
+      <div class="my-4 flex items-center justify-between text-xs text-slate-400">
+        <span class="h-px bg-slate-200 flex-1"></span>
+        <span class="px-3">or</span>
+        <span class="h-px bg-slate-200 flex-1"></span>
+      </div>
+
+      <button onclick="handleGoogleSignIn()" class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl transition text-sm flex items-center justify-center gap-2">
+        <i data-lucide="chrome" class="w-4 h-4"></i> Continue with Google
+      </button>
+
+      <div class="mt-6 text-center text-xs text-slate-500">
+        <span id="auth-toggle-text">Don't have an account?</span>
+        <button onclick="toggleAuthMode()" id="auth-toggle-btn" class="font-bold text-indigo-600 hover:underline ml-1">Sign Up</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Script Logic -->
+  <script>
+    let quizData = { topics: [] };
+    let activeQuestions = [];
+    let currentQuestionIndex = 0;
+    let selectedOption = null;
+    let userNumericAnswer = "";
+    let hintsRevealed = 0;
+    let questionAttempts = 0; // Tracks retry attempts per question (max 1 retry)
+    let authMode = 'signin';
+    let currentUser = null;
+    let userStats = { xp: 0, streak: 0, displayName: '', bio: '', avatarUrl: '' };
+    let sessionXpEarned = 0;
+    let canvas, ctx, isDrawing = false;
+    let activeParentTopicId = null;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      fetch('questions.json')
+        .then(res => res.json())
+        .then(data => {
+          quizData = data;
+          renderTopicMenuAndCards();
+          handleRoute();
+          lucide.createIcons();
+        })
+        .catch(err => console.error("Failed to load questions.json", err));
+
+      initScratchpad();
+      initFirebaseObserver();
+    });
+
+    function hideAllViews() {
+      document.getElementById('view-dashboard').classList.add('hidden');
+      document.getElementById('view-topic-overview').classList.add('hidden');
+      document.getElementById('view-quiz').classList.add('hidden');
+      document.getElementById('view-profile').classList.add('hidden');
+      document.getElementById('view-results').classList.add('hidden');
+    }
+
+    function showDashboard() {
+      history.pushState("", document.title, window.location.pathname + window.location.search);
+      hideAllViews();
+      document.getElementById('view-dashboard').classList.remove('hidden');
+      updateHomeProfileUI();
+      lucide.createIcons();
+    }
+
+    function updateHomeProfileUI() {
+      const nameElem = document.getElementById('home-profile-name');
+      const bioElem = document.getElementById('home-profile-bio');
+      const avatarElem = document.getElementById('home-profile-avatar');
+
+      const displayName = userStats.displayName || (currentUser ? (currentUser.displayName || currentUser.email.split('@')[0]) : 'Student');
+      const bio = userStats.bio || 'No bio added yet. Click edit profile to tell us a little bit about yourself and set up your student profile!';
+      
+      nameElem.innerText = displayName;
+      bioElem.innerText = bio;
+
+      if (userStats.avatarUrl) {
+        avatarElem.innerHTML = `<img src="${userStats.avatarUrl}" class="w-full h-full object-cover">`;
+      } else {
+        avatarElem.innerText = (displayName[0] || 'U').toUpperCase();
+      }
+    }
+    
+    function showProfileSettings() {
+      if (!currentUser) {
+        openAuthModal('signin');
+        return;
+      }
+      hideAllViews();
+      document.getElementById('view-profile').classList.remove('hidden');
+    
+      document.getElementById('profile-name-input').value = userStats.displayName || currentUser.displayName || '';
+      document.getElementById('profile-bio-input').value = userStats.bio || '';
+      document.getElementById('profile-avatar-input').value = userStats.avatarUrl || '';
+      
+      lucide.createIcons();
+    }
+    
+    async function saveProfileSettings(e) {
+      e.preventDefault();
+      if (!currentUser) return;
+    
+      const newName = document.getElementById('profile-name-input').value.trim();
+      const newBio = document.getElementById('profile-bio-input').value.trim();
+      const newAvatar = document.getElementById('profile-avatar-input').value.trim();
+    
+      const saveBtn = document.getElementById('save-profile-btn');
+      saveBtn.innerText = "Saving...";
+      saveBtn.disabled = true;
+    
+      try {
+        const docRef = window.fbMethods.doc(window.firebaseDb, "users", currentUser.uid);
+        
+        userStats.displayName = newName;
+        userStats.bio = newBio;
+        userStats.avatarUrl = newAvatar;
+    
+        await window.fbMethods.setDoc(docRef, userStats, { merge: true });
+    
+        document.getElementById('user-display-name').innerText = newName || currentUser.email.split('@')[0];
+        
+        if (newAvatar) {
+          document.getElementById('user-avatar').innerHTML = `<img src="${newAvatar}" class="w-full h-full rounded-full object-cover">`;
+        }
+    
+        alert("✅ Profile saved successfully!");
+        showDashboard();
+      } catch (err) {
+        alert("Error saving profile: " + err.message);
+      } finally {
+        saveBtn.innerText = "Save Changes";
+        saveBtn.disabled = false;
+      }
+    }
+
+    async function fetchUserData(uid) {
+      try {
+        const docRef = window.fbMethods.doc(window.firebaseDb, "users", uid);
+        const docSnap = await window.fbMethods.getDoc(docRef);
+        if (docSnap.exists()) {
+          userStats = docSnap.data();
+          if (userStats.displayName) {
+            document.getElementById('user-display-name').innerText = userStats.displayName;
+          }
+          if (userStats.avatarUrl) {
+            document.getElementById('user-avatar').innerHTML = `<img src="${userStats.avatarUrl}" class="w-full h-full rounded-full object-cover">`;
+          }
+        } else {
+          userStats = { xp: 0, streak: 1, displayName: currentUser.displayName || '', bio: '', avatarUrl: '' };
+          await window.fbMethods.setDoc(docRef, userStats);
+        }
+        updateStatsDisplay();
+        updateHomeProfileUI();
+      } catch (err) {}
+    }
+    
+    function initFirebaseObserver() {
+      const checkFb = setInterval(() => {
+        if (window.firebaseAuth && window.fbMethods) {
+          clearInterval(checkFb);
+          window.fbMethods.onAuthStateChanged(window.firebaseAuth, async (user) => {
+            currentUser = user;
+            if (user) {
+              document.getElementById('logged-out-view').classList.add('hidden');
+              document.getElementById('logged-in-view').classList.remove('hidden');
+              document.getElementById('user-display-name').innerText = user.displayName || user.email.split('@')[0];
+              document.getElementById('user-email-label').innerText = user.email;
+              document.getElementById('user-avatar').innerText = (user.email[0] || 'U').toUpperCase();
+              await fetchUserData(user.uid);
+            } else {
+              document.getElementById('logged-out-view').classList.remove('hidden');
+              document.getElementById('logged-in-view').classList.add('hidden');
+              userStats = { xp: 0, streak: 0, displayName: '', bio: '', avatarUrl: '' };
+              updateStatsDisplay();
+              updateHomeProfileUI();
+            }
+          });
+        }
+      }, 200);
+    }
+
+    function updateStatsDisplay() {
+      document.getElementById('score-xp').innerText = userStats.xp || 0;
+      document.getElementById('streak-count').innerText = userStats.streak || 0;
+    }
+
+    function renderTopicMenuAndCards() {
+      const dropdownMenu = document.getElementById('dropdown-topics-menu');
+      dropdownMenu.innerHTML = '';
+
+      quizData.topics.forEach((topic) => {
+        const hasSubtopics = topic.subtopics && topic.subtopics.length > 0;
+        const menuItem = document.createElement('div');
+        menuItem.className = "relative group/sub has-submenu";
+
+        if (hasSubtopics) {
+          menuItem.innerHTML = `
+            <div onclick="navigateToTopic('${topic.id}')" class="flex items-center justify-between px-3 py-2 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl font-medium cursor-pointer transition">
+              <span>${topic.title}</span>
+              <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+            </div>
+            <div class="submenu hidden absolute left-full top-0 ml-1 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl p-2 z-50">
+              <div class="text-[10px] font-bold text-slate-400 px-3 py-1 uppercase tracking-wider border-b border-slate-100 mb-1">
+                ${topic.title} Subtopics
+              </div>
+              ${topic.subtopics.map(sub => `
+                <div class="relative group/nested has-submenu">
+                  <div onclick="navigateToTopic('${sub.id}')" class="flex items-center justify-between px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg cursor-pointer transition">
+                    <span>${sub.title}</span>${sub.links && sub.links.length ? '<i data-lucide="chevron-right" class="w-3 h-3 text-slate-400"></i>' : ''}
+                  </div>
+                  
+                  ${sub.links && sub.links.length ? `
+                    <div class="submenu hidden absolute left-full top-0 ml-1 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl p-2 z-50">
+                      <div class="text-[10px] font-bold text-slate-400 px-3 py-1 uppercase tracking-wider border-b border-slate-100 mb-1">
+                        Resources
+                      </div>
+                      ${sub.links.map(link => `
+                        <a href="${link.url}" target="_blank" rel="noopener noreferrer" class="block px-3 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50 rounded-lg font-medium transition flex items-center justify-between">
+                          <span>${link.title}</span>
+                          <i data-lucide="external-link" class="w-3 h-3"></i>
+                        </a>
+                      `).join('')}
+                      <a href="#${sub.id}" onclick="event.preventDefault(); navigateToTopic('${sub.id}');" class="block px-3 py-1.5 text-xs font-bold text-emerald-600 hover:bg-emerald-50 rounded-lg transition border-t border-slate-100 mt-1">
+                        Practice Problems
+                      </a>
+                    </div>
+                  ` : ''}
+                </div>
+              `).join('')}
+            </div>
+          `;
+        } else {
+          menuItem.innerHTML = `
+            <a href="#${topic.id}" onclick="event.preventDefault(); navigateToTopic('${topic.id}');" class="block px-3 py-2 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl font-medium transition">
+              ${topic.title}
+            </a>
+          `;
+        }
+        dropdownMenu.appendChild(menuItem);
+      });
+
+      lucide.createIcons();
+    }
+
+    function navigateToTopic(targetId) {
+      window.location.hash = targetId;
+      handleRoute();
+    }
+
+    function handleRoute() {
+      const routeId = window.location.hash.replace('#', '');
+      if (!routeId) {
+        showDashboard();
+        return;
+      }
+
+      const topicMatch = quizData.topics.find(t => t.id === routeId);
+      if (topicMatch && topicMatch.subtopics && topicMatch.subtopics.length > 0) {
+        renderTopicOverview(topicMatch);
+        return;
+      }
+
+      startTopicQuiz(routeId);
+    }
+
+    window.addEventListener('hashchange', handleRoute);
+
+    function renderTopicOverview(topic) {
+      hideAllViews();
+      document.getElementById('view-topic-overview').classList.remove('hidden');
+
+      const totalQuestions = topic.subtopics.reduce((sum, s) => sum + (s.questions ? s.questions.length : 0), 0);
+
+      const hero = document.getElementById('topic-hero-card');
+      hero.innerHTML = `
+        <div class="flex items-center gap-3">
+          <div class="p-3 bg-white/10 rounded-xl text-white">
+            <i data-lucide="${topic.icon || 'book-open'}" class="w-8 h-8"></i>
+          </div>
+          <div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold">${topic.title}</h1>
+            <p class="text-indigo-100 text-xs sm:text-sm">${totalQuestions} total questions across ${topic.subtopics.length} subtopics</p>
+          </div>
+        </div>
+        <p class="text-indigo-100 text-sm sm:text-base">${topic.description}</p>
+        <div class="pt-2">
+          <button onclick="startTopicQuiz('${topic.id}')" class="bg-white text-indigo-700 hover:bg-indigo-50 font-bold px-5 py-2.5 rounded-xl text-sm transition shadow-sm flex items-center gap-2">
+            Practice All Subtopics Combined <i data-lucide="play" class="w-4 h-4 fill-indigo-700"></i>
+          </button>
+        </div>
+      `;
+
+      const list = document.getElementById('subtopics-list');
+      list.innerHTML = '';
+
+      topic.subtopics.forEach(sub => {
+        const qCount = sub.questions ? sub.questions.length : 0;
+        const item = document.createElement('div');
+        item.className = "bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3";
+        
+        item.innerHTML = `
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-slate-800 text-base">${sub.title}</h3>
+            <span class="text-xs text-slate-400 font-medium">${qCount} practice questions</span>
+          </div>
+      
+          <div class="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
+            ${sub.links ? sub.links.map(link => `
+              <a href="${link.url}" target="_blank" rel="noopener noreferrer" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+                <i data-lucide="${link.type === 'video' ? 'video' : 'file-text'}" class="w-3.5 h-3.5 text-indigo-600"></i>
+                ${link.title}
+                <i data-lucide="external-link" class="w-3 h-3 text-slate-400"></i>
+              </a>
+            `).join('') : ''}
+      
+            <button onclick="startTopicQuiz('${sub.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ml-auto">
+              <i data-lucide="brain" class="w-3.5 h-3.5"></i>
+              Practice Problems
+            </button>
+          </div>
+        `;
+        list.appendChild(item);
+      });
+
+      lucide.createIcons();
+    }
+
+    function startTopicQuiz(targetId) {
+      activeQuestions = [];
+      let displayTitle = "Practice";
+      activeParentTopicId = null;
+      sessionXpEarned = 0;
+
+      quizData.topics.forEach(t => {
+        if (t.id === targetId) {
+          if (t.questions) {
+            activeQuestions = t.questions;
+          } else if (t.subtopics) {
+            activeQuestions = t.subtopics.flatMap(s => s.questions || []);
+            activeParentTopicId = t.id;
+          }
+          displayTitle = t.title;
+        } else if (t.subtopics) {
+          t.subtopics.forEach(s => {
+            if (s.id === targetId) {
+              activeQuestions = s.questions || [];
+              displayTitle = `${t.title} › ${s.title}`;
+              activeParentTopicId = t.id;
+            }
+          });
+        }
+      });
+
+      if (!activeQuestions.length) {
+        alert("No questions found for this topic yet.");
+        return;
+      }
+
+      currentQuestionIndex = 0;
+      hideAllViews();
+      document.getElementById('view-quiz').classList.remove('hidden');
+      document.getElementById('current-topic-title').innerText = displayTitle;
+
+      const backBtn = document.getElementById('quiz-back-btn');
+      if (activeParentTopicId) {
+        backBtn.onclick = () => navigateToTopic(activeParentTopicId);
+      } else {
+        backBtn.onclick = () => showDashboard();
+      }
+
+      loadQuestion();
+    }
+
+    function loadQuestion() {
+      const q = activeQuestions[currentQuestionIndex];
+      selectedOption = null;
+      userNumericAnswer = "";
+      hintsRevealed = 0;
+      questionAttempts = 0; // Reset retry counter for new question
+
+      document.getElementById('question-tracker').innerText = `Question ${currentQuestionIndex + 1} of ${activeQuestions.length}`;
+      document.getElementById('question-text').innerText = q.question;
+
+      const typeBadge = document.getElementById('question-type-badge');
+      if (q.type === 'numeric') {
+        typeBadge.innerText = "Numeric Input";
+        typeBadge.className = "text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-md font-bold text-[11px] border border-purple-200 tracking-wider uppercase";
+      } else {
+        typeBadge.innerText = "Multiple Choice";
+        typeBadge.className = "text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-md font-bold text-[11px] border border-indigo-200 tracking-wider uppercase";
+      }
+
+      const codeContainer = document.getElementById('code-snippet-container');
+      if (q.codeSnippet) {
+        document.getElementById('code-snippet').innerText = q.codeSnippet;
+        codeContainer.classList.remove('hidden');
+      } else {
+        codeContainer.classList.add('hidden');
+      }
+
+      const optionsContainer = document.getElementById('options-container');
+      const numericContainer = document.getElementById('numeric-container');
+
+      if (q.type === 'numeric') {
+        optionsContainer.classList.add('hidden');
+        numericContainer.classList.remove('hidden');
+
+        const inputElem = document.getElementById('numeric-input');
+        inputElem.value = "";
+        inputElem.focus();
+      } else {
+        numericContainer.classList.add('hidden');
+        optionsContainer.classList.remove('hidden');
+
+        optionsContainer.innerHTML = '';
+        if (q.options) {
+          q.options.forEach((optText, idx) => {
+            const btn = document.createElement('button');
+            btn.className = "w-full text-left p-4 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-slate-50 transition font-medium text-slate-700 flex items-center justify-between option-btn";
+            btn.onclick = () => selectOption(idx, btn);
+            btn.innerHTML = `
+              <div class="flex items-center gap-3">
+                <span class="w-7 h-7 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">${String.fromCharCode(65 + idx)}</span>
+                <span>${optText}</span>
+              </div>
+            `;
+            optionsContainer.appendChild(btn);
+          });
+        }
+      }
+
+      document.getElementById('hints-remaining').innerText = q.hints ? q.hints.length : 0;
+      document.getElementById('hint-btn').disabled = !q.hints || q.hints.length === 0;
+      document.getElementById('hints-box').classList.add('hidden');
+      document.getElementById('hints-list').innerHTML = '';
+
+      const feedbackBox = document.getElementById('feedback-box');
+      feedbackBox.className = "hidden p-6 border-t";
+      feedbackBox.innerHTML = '';
+
+      document.getElementById('action-bar').classList.remove('hidden');
+      document.getElementById('submit-btn').disabled = true;
+
+      lucide.createIcons();
+    }
+
+    function selectOption(index, btnElement) {
+      selectedOption = index;
+      document.querySelectorAll('.option-btn').forEach(b => {
+        b.classList.remove('border-indigo-600', 'bg-indigo-50/50', 'ring-2', 'ring-indigo-600/20');
+        b.classList.add('border-slate-200');
+      });
+      btnElement.classList.remove('border-slate-200');
+      btnElement.classList.add('border-indigo-600', 'bg-indigo-50/50', 'ring-2', 'ring-indigo-600/20');
+      document.getElementById('submit-btn').disabled = false;
+    }
+
+    function handleNumericInput(val) {
+      userNumericAnswer = val.trim();
+      document.getElementById('submit-btn').disabled = userNumericAnswer.length === 0;
+    }
+
+    function appendNumericChar(char) {
+      const inputElem = document.getElementById('numeric-input');
+      inputElem.value += char;
+      handleNumericInput(inputElem.value);
+      inputElem.focus();
+    }
+
+    function clearNumericInput() {
+      const inputElem = document.getElementById('numeric-input');
+      inputElem.value = "";
+      handleNumericInput("");
+      inputElem.focus();
+    }
+
+    function revealHint() {
+      const q = activeQuestions[currentQuestionIndex];
+      if (!q.hints || hintsRevealed >= q.hints.length) return;
+
+      const hintsBox = document.getElementById('hints-box');
+      const hintsList = document.getElementById('hints-list');
+      hintsBox.classList.remove('hidden');
+
+      const hintElem = document.createElement('div');
+      hintElem.className = "p-3 bg-white/80 rounded-lg border border-amber-200 text-amber-900";
+      hintElem.innerHTML = `<strong>Hint ${hintsRevealed + 1}:</strong> ${q.hints[hintsRevealed]}`;
+      hintsList.appendChild(hintElem);
+
+      hintsRevealed++;
+      document.getElementById('hints-remaining').innerText = q.hints.length - hintsRevealed;
+      if (hintsRevealed >= q.hints.length) {
+        document.getElementById('hint-btn').disabled = true;
+      }
+    }
+
+    async function checkAnswer() {
+      const q = activeQuestions[currentQuestionIndex];
+      let isCorrect = false;
+
+      if (q.type === 'numeric') {
+        const parsedInput = parseFloat(userNumericAnswer);
+        const targetVal = parseFloat(q.correctNumericAnswer);
+        const tol = q.tolerance || 0.0001;
+
+        if (!isNaN(parsedInput) && !isNaN(targetVal)) {
+          isCorrect = Math.abs(parsedInput - targetVal) <= tol;
+        } else {
+          isCorrect = userNumericAnswer.toLowerCase() === String(q.correctNumericAnswer).trim().toLowerCase();
+        }
+      } else {
+        if (selectedOption === null) return;
+        isCorrect = selectedOption === q.correctAnswer;
+      }
+
+      const feedbackBox = document.getElementById('feedback-box');
+      document.getElementById('action-bar').classList.add('hidden');
+      feedbackBox.classList.remove('hidden');
+
+      if (isCorrect) {
+        userStats.xp = (userStats.xp || 0) + 10;
+        sessionXpEarned += 10;
+        updateStatsDisplay();
+
+        if (currentUser && window.fbMethods) {
+          try {
+            const docRef = window.fbMethods.doc(window.firebaseDb, "users", currentUser.uid);
+            await window.fbMethods.updateDoc(docRef, { xp: window.fbMethods.increment(10) });
+          } catch(e){}
+        }
+
+        feedbackBox.className = "p-6 border-t border-emerald-200 bg-emerald-50 rounded-b-2xl space-y-4";
+        feedbackBox.innerHTML = `
+          <div class="flex items-start gap-3">
+            <div class="p-2 bg-emerald-500 text-white rounded-full shrink-0"><i data-lucide="check" class="w-5 h-5"></i></div>
+            <div>
+              <h3 class="text-lg font-bold text-emerald-900">Spot on! That's correct.</h3>
+              <p class="text-sm text-emerald-700 mt-1">${q.explanation || 'Great job answering this problem.'}</p>
+            </div>
+          </div>
+          <div class="flex justify-end">
+            <button onclick="nextQuestion()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-bold transition flex items-center gap-2">
+              Next Question <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+        `;
+      } else {
+        // If questionAttempts is 0, give ONE try again chance. If already 1, exhaust tries and show correct answer.
+        if (questionAttempts === 0) {
+          questionAttempts = 1;
+          feedbackBox.className = "p-6 border-t border-amber-200 bg-amber-50 rounded-b-2xl space-y-3";
+          feedbackBox.innerHTML = `
+            <div class="flex items-start gap-3">
+              <div class="p-2 bg-amber-500 text-white rounded-full shrink-0"><i data-lucide="alert-circle" class="w-5 h-5"></i></div>
+              <div>
+                <h3 class="text-base font-bold text-amber-900">Not quite right. You have 1 try remaining!</h3>
+                <p class="text-xs text-amber-700 mt-0.5">Check your calculations or review the hints if you need a nudge.</p>
+              </div>
+            </div>
+            <div class="flex justify-end">
+              <button onclick="hideFeedbackAndTryAgain()" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2 rounded-xl text-xs font-bold transition">
+                Try Again
+              </button>
+            </div>
+          `;
+        } else {
+          // Exhausted the 1 retry attempt, show correct solution and continue button
+          const expectedSolution = q.type === 'numeric' 
+            ? `Correct Numerical Solution: <strong class="font-bold underline">${q.correctNumericAnswer}</strong>`
+            : `Correct Option: <strong class="font-bold">${String.fromCharCode(65 + q.correctAnswer)}) ${q.options[q.correctAnswer]}</strong>`;
+
+          feedbackBox.className = "p-6 border-t border-rose-200 bg-rose-50 rounded-b-2xl space-y-4";
+          feedbackBox.innerHTML = `
+            <div class="flex items-start gap-3">
+              <div class="p-2 bg-rose-500 text-white rounded-full shrink-0"><i data-lucide="x" class="w-5 h-5"></i></div>
+              <div>
+                <h3 class="text-lg font-bold text-rose-900">Incorrect</h3>
+                <p class="text-xs text-rose-800 font-semibold mt-0.5">${expectedSolution}</p>
+                <p class="text-sm text-rose-700 mt-2">${q.explanation || 'Review the explanation above.'}</p>
+              </div>
+            </div>
+            <div class="flex justify-end">
+              <button onclick="nextQuestion()" class="bg-rose-600 hover:bg-rose-700 text-white px-6 py-2.5 rounded-xl font-bold transition flex items-center gap-2">
+                Continue <i data-lucide="arrow-right" class="w-4 h-4"></i>
+              </button>
+            </div>
+          `;
+        }
+      }
+      lucide.createIcons();
+    }
+
+    function hideFeedbackAndTryAgain() {
+      document.getElementById('feedback-box').classList.add('hidden');
+      document.getElementById('action-bar').classList.remove('hidden');
+    }
+
+    function nextQuestion() {
+      if (currentQuestionIndex < activeQuestions.length - 1) {
+        currentQuestionIndex++;
+        loadQuestion();
+      } else {
+        hideAllViews();
+        document.getElementById('view-results').classList.remove('hidden');
+        document.getElementById('results-total-q').innerText = activeQuestions.length;
+        document.getElementById('results-xp-earned').innerText = `+${sessionXpEarned}`;
+        
+        if (typeof confetti === 'function') {
+          confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+        }
+        lucide.createIcons();
+      }
+    }
+
+    function initScratchpad() {
+      canvas = document.getElementById('scratchpad-canvas');
+      ctx = canvas.getContext('2d');
+
+      const resize = () => {
+        if (!canvas.parentElement) return;
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight - 40;
+      };
+      window.addEventListener('resize', resize);
+      setTimeout(resize, 100);
+
+      const start = (e) => { isDrawing = true; draw(e); };
+      const stop = () => { isDrawing = false; ctx.beginPath(); };
+      const draw = (e) => {
+        if (!isDrawing) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
+        const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
+
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#4f46e5';
+
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+      };
+
+      canvas.addEventListener('mousedown', start);
+      canvas.addEventListener('mouseup', stop);
+      canvas.addEventListener('mousemove', draw);
+      canvas.addEventListener('touchstart', start);
+      canvas.addEventListener('touchend', stop);
+      canvas.addEventListener('touchmove', draw);
+    }
+
+    function toggleScratchpad() {
+      const drawer = document.getElementById('scratchpad-drawer');
+      drawer.classList.toggle('hidden');
+      if (!drawer.classList.contains('hidden')) {
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight - 40;
+      }
+    }
+
+    function clearScratchpad() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function openAuthModal(mode = 'signin') {
+      authMode = mode;
+      updateAuthModalUI();
+      document.getElementById('auth-modal').classList.remove('hidden');
+    }
+
+    function closeAuthModal() {
+      document.getElementById('auth-modal').classList.add('hidden');
+    }
+
+    function toggleAuthMode() {
+      authMode = authMode === 'signin' ? 'signup' : 'signin';
+      updateAuthModalUI();
+    }
+
+    function updateAuthModalUI() {
+      document.getElementById('auth-modal-title').innerText = authMode === 'signin' ? 'Sign In to EduPractice' : 'Create an Account';
+      document.getElementById('auth-submit-btn').innerText = authMode === 'signin' ? 'Sign In' : 'Create Account';
+      document.getElementById('auth-toggle-text').innerText = authMode === 'signin' ? "Don't have an account?" : "Already have an account?";
+      document.getElementById('auth-toggle-btn').innerText = authMode === 'signin' ? 'Sign Up' : 'Sign In';
+    }
+
+    async function handleAuthSubmit(e) {
+      e.preventDefault();
+      const email = document.getElementById('auth-email').value;
+      const password = document.getElementById('auth-password').value;
+
+      try {
+        if (authMode === 'signup') {
+          await window.fbMethods.createUserWithEmailAndPassword(window.firebaseAuth, email, password);
+        } else {
+          await window.fbMethods.signInWithEmailAndPassword(window.firebaseAuth, email, password);
+        }
+        closeAuthModal();
+      } catch (err) {
+        alert("Authentication Error: " + err.message);
+      }
+    }
+
+    async function handleGoogleSignIn() {
+      try {
+        const provider = new window.fbMethods.GoogleAuthProvider();
+        await window.fbMethods.signInWithPopup(window.firebaseAuth, provider);
+        closeAuthModal();
+      } catch (err) {
+        alert("Google Sign In Error: " + err.message);
+      }
+    }
+
+    async function handleSignOut() {
+      try {
+        await window.fbMethods.signOut(window.firebaseAuth);
+      } catch (err) {
+        console.error("Sign Out Error:", err);
+      }
+    }
+  </script>
+</body>
+</html>
